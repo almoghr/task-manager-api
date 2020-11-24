@@ -2,6 +2,8 @@ const mongoose = require ('mongoose')
 const validator = require ('validator')
 const bcryptjs = require('bcryptjs')
 const jwt = require ('jsonwebtoken')
+const Task = require ('./task')
+
 const userSchema = new mongoose.Schema({
     name: {
         type: String,
@@ -42,16 +44,19 @@ const userSchema = new mongoose.Schema({
             }
         }
     },
-    created: {
-        type: Date,
-        default: Date.now()
-    }, 
     tokens: [{
         token: {
             type: String,
             required: true,
         }
     }]     
+}, 
+    {timestamps: {createdAt: 'created_at', updatedAt: 'updated_at'},
+})
+userSchema.virtual('tasks', {
+    ref:'Task',
+    localField: '_id',
+    foreignField: 'owner'
 })
 
 //hash the plain text password before saving
@@ -60,6 +65,12 @@ userSchema.pre('save', async function (next) {
     if(user.isModified('password')){
         user.password = await bcryptjs.hash(user.password, 8)
     }
+    next()
+})
+
+userSchema.pre('remove', async function (next){
+    const user = this
+    await Task.deleteMany({ owner: user._id })
     next()
 })
 
